@@ -1,10 +1,12 @@
 # Gold Desk 交接紀錄
 
-## 2026-10-28：B 區塊新增近期波動範圍與風險預算試算（分支 feature/b-volatility-range，尚未併入 main）
+## 2026-10-28：B 區塊新增近期波動範圍、停損被碰到比例與風險預算試算（分支 feature/b-volatility-range，尚未併入 main）
 
-在「確認前核對」的部位與價格風險下新增「近期波動範圍」：持有 15 分、1 小時、4 小時，過去 20 個交易日價格對這筆單最不利的變動（p50、p95），換算成本筆美元；並提供輸入預算反推手數上限的試算。沒有相似案例時一樣顯示。接在 `IntegratedReview.tsx` 的 `RiskReview`，回放審核與對話審核共用。資料是 Yahoo GC=F 期貨 5 分 K 的衍生快照，不是現貨或券商報價，只存百分位數字；歷史描述，不是預測或損失上限。
+在「確認前核對」的部位與價格風險下新增「近期波動範圍」：持有 15 分、1 小時、4 小時，過去 20 個交易日價格對這筆單不利的走勢（一半情況與 95% 情況），換算成本筆美元；有設停損時顯示「你的停損過去被碰到的比例」；並提供輸入預算反推手數上限的試算。沒有相似案例時一樣顯示。接在 `IntegratedReview.tsx` 的 `RiskReview`，回放審核與對話審核共用。文字改成白話。
 
-新增 `backend/volatility.py`、`frontend/src/rangeMath.ts`、`VolatilityRange.tsx`、`volatility-snapshot.json`、快照與驗證腳本及測試；只改 `IntegratedReview.tsx`（+2 行）與 `integration.css`（+14 行）。前端 123 項（原 104 + 新 19）、後端 CI 指令 485 項（含新 21）、兩種建置通過；本機 Pages 建置實際操作買賣單、有無停損、預算試算與 390px 手機寬度。滾動驗證顯示 15 分與 1 小時的 95% 範圍平均大致守得住，4 小時逐日差異很大，只能當粗略參考。細節、限制與未完成項目見 [docs/B_volatility_range_20261028.md](docs/B_volatility_range_20261028.md)。沒有改後端 API、相似規則、個人規則或券商流程；沒有部署。
+說明也會引用：後端 `evidence.py` 的 risk 區新增 `risk.volatility` 事實（程式寫好整句話，LLM 只能挑編號）；Pages 的 Groq facts 多一個小區塊，超過代理 1,500 字限制時自動不附，避免 Groq 說明失效。沒有金鑰，未實際呼叫 Groq。
+
+資料是 Yahoo GC=F 期貨 5 分 K 的衍生快照，不是現貨或券商報價，只存分布數字；歷史描述，不是預測或損失上限。新增 `backend/volatility.py`、`frontend/src/rangeMath.ts`、`VolatilityRange.tsx`、`groqFacts.ts`、快照與驗證腳本及測試；既有檔案只動 `IntegratedReview.tsx`、`integration.css`、`evidence.py`、`groqProxy.ts` 與本檔，皆很小。前端 138 項（原 104 + 新 34）、後端 CI 指令 504 項、兩種建置通過；本機 Pages 建置實際操作並以獨立程式重算停損比例。細節、限制與未完成項目見 [docs/B_volatility_range_20261028.md](docs/B_volatility_range_20261028.md)。沒有改後端 API、相似規則、個人規則或券商流程；沒有部署到組員的站。
 
 ## 2026-10-26：左側目錄收斂為三個主頁（本地預覽，尚未部署）
 

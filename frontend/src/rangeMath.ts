@@ -12,7 +12,7 @@ export type HorizonKey='15m'|'1h'|'4h';
 export const HORIZONS:HorizonKey[]=['15m','1h','4h'];
 export const HORIZON_LABEL:Record<HorizonKey,string>={'15m':'15 分鐘','1h':'1 小時','4h':'4 小時'};
 
-type RangeEntry={status:string;windows:number;p50_pct?:number;p95_pct?:number};
+type RangeEntry={status:string;windows:number;p50_pct?:number;p95_pct?:number;quantiles_pct?:number[]};
 export type Snapshot={
   source:string;source_note:string;generated_at:string;
   window:{trading_days:number;bars:number;start_utc:string;end_utc:string};
@@ -81,9 +81,34 @@ export type Basis={source:'STOP'|'P95_1H';perOz:string;text:string};
 export function budgetBasis(price:string,sl:string|null,range:RangeResult):Basis|null{
   try{
     const stop=sl?d(price).minus(d(sl)).abs():null;
-    if(stop&&stop.isFinite()&&stop.gt(0))return {source:'STOP',perOz:stop.toFixed(2),text:`你設定的停損距離 ${stop.toFixed(2)} 美元／盎司`};
+    if(stop&&stop.isFinite()&&stop.gt(0))return {source:'STOP',perOz:stop.toFixed(2),text:`你設的停損距離 ${stop.toFixed(2)} 美元／盎司`};
   }catch{/* fall through to the historical distance */}
   if(range.status!=='AVAILABLE')return null;
   const hour=range.rows.find(r=>r.horizon==='1h');
-  return hour?{source:'P95_1H',perOz:hour.p95PerOz,text:`沒有設定停損，改用近期持有 1 小時的 95% 不利變動 ${hour.p95PerOz} 美元／盎司作參考距離（這不是停損）`}:null;
+  return hour?{source:'P95_1H',perOz:hour.p95PerOz,text:`你還沒設停損，所以改用最近 1 小時的較大波動 ${hour.p95PerOz} 美元／盎司當參考（這不是停損）`}:null;
+}
+
+/** Whole-percent share of snapshot windows whose adverse move reached the stop distance.
+ *  Same rule as backend/volatility.py touch_share: equal counts as touched; 1-point resolution. */
+export function touchShare(quantilesPct:number[],stopPct:number):number{
+  if(quantilesPct.length!==100)throw Error('need the p1..p100 grid');
+  if(!(stopPct>0)||!Number.isFinite(stopPct))throw Error('stop distance must be positive');
+  return quantilesPct.filter(q=>q>=stopPct).length;
+}
+
+export type StopTouch={distancePerOz:string;rows:{horizon:HorizonKey;label:string;sharePct:number}[]};
+/** How often the user's stop distance was reached while holding, per horizon. Null when no usable stop. */
+export function stopTouch(snap:Snapshot,side:Side,price:string,sl:string|null):StopTouch|null{
+  if(!sl)return null;
+  let entry:Decimal,stop:Decimal;
+  try{entry=d(price);stop=d(price).minus(d(sl)).abs();}catch{return null;}
+  if(!entry.isFinite()||entry.lte(0)||!stop.isFinite()||stop.lte(0))return null;
+  const stopPct=stop.div(entry).times(100).toNumber();
+  const rows:StopTouch['rows']=[];
+  for(const h of HORIZONS){
+    const r=snap.ranges?.[side]?.[h];
+    if(!r||r.status!=='AVAILABLE'||!r.quantiles_pct||r.quantiles_pct.length!==100)continue;
+    rows.push({horizon:h,label:HORIZON_LABEL[h],sharePct:touchShare(r.quantiles_pct,stopPct)});
+  }
+  return rows.length?{distancePerOz:stop.toFixed(2),rows}:null;
 }

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {rangeFor,lotFromBudget,snapshot,HORIZONS,type Snapshot} from '../src/rangeMath';
+import {rangeFor,lotFromBudget,snapshot,HORIZONS,touchShare,stopTouch,type Snapshot} from '../src/rangeMath';
 
 const fake:Snapshot={
  source:'測試來源',source_note:'測試備註',generated_at:'2026-10-28T00:00:00+00:00',
@@ -80,4 +80,48 @@ test('budget is capped at the maximum lot and says so',()=>{
 test('non-positive or non-finite budget input is invalid',()=>{
  for(const [b,p] of [['0','3'],['-5','3'],['abc','3'],['100','0'],['NaN','3'],['Infinity','3']])
   assert.equal(lotFromBudget(b,p).status,'INVALID',b+'/'+p);
+});
+
+// Same grid and expectations as backend/tests/test_volatility.py so both languages agree.
+const GRID=Array.from({length:100},(_,i)=>Math.round((i+1)*100)/10000);   // 0.01 .. 1.00 percent
+const withGrid:Snapshot={...fake,ranges:{
+ BUY:Object.fromEntries(['15m','1h','4h'].map(h=>[h,{status:'AVAILABLE',windows:1000,p50_pct:0.2,p95_pct:0.5,quantiles_pct:GRID}])),
+ SELL:Object.fromEntries(['15m','1h','4h'].map(h=>[h,{status:'AVAILABLE',windows:1000,p50_pct:0.3,p95_pct:0.8,quantiles_pct:GRID}])),
+}};
+
+test('touch share counts grid points at or above the stop, and equal counts as touched',()=>{
+ assert.equal(touchShare(GRID,0.505),50);
+ assert.equal(touchShare(GRID,0.50),51);
+ assert.equal(touchShare(GRID,0.001),100);
+ assert.equal(touchShare(GRID,2),0);
+});
+test('touch share rejects a bad grid or a non-positive stop',()=>{
+ assert.throws(()=>touchShare(GRID.slice(0,50),0.5));
+ assert.throws(()=>touchShare(GRID,0));
+ assert.throws(()=>touchShare(GRID,-1));
+ assert.throws(()=>touchShare(GRID,Number.NaN));
+});
+test('stop distance 20 on price 4000 is 0.5 percent and was reached 51 percent of the time at every horizon',()=>{
+ const r=stopTouch(withGrid,'BUY','4000','3980')!;
+ assert.equal(r.distancePerOz,'20.00');
+ assert.deepEqual(r.rows.map(x=>x.sharePct),[51,51,51]);
+});
+test('no stop, equal stop, unreadable stop or missing grid give no stop block',()=>{
+ assert.equal(stopTouch(withGrid,'BUY','4000',null),null);
+ assert.equal(stopTouch(withGrid,'BUY','4000','4000'),null);
+ assert.equal(stopTouch(withGrid,'BUY','4000','abc'),null);
+ assert.equal(stopTouch(withGrid,'BUY','abc','3980'),null);
+ assert.equal(stopTouch(fake,'BUY','4000','3980'),null);      // fake has no quantile grid
+});
+test('a stop far beyond anything in the window was never reached; a tight stop is reached almost always',()=>{
+ assert.equal(stopTouch(withGrid,'BUY','4000','3800')!.rows[0].sharePct,0);       // 5 percent away
+ assert.equal(stopTouch(withGrid,'BUY','4000','3999.9')!.rows[0].sharePct,100);   // 0.0025 percent away
+});
+test('wider stops are never reached more often than tighter ones in the bundled snapshot',()=>{
+ for(const side of ['BUY','SELL'] as const){
+  const tight=stopTouch(snapshot,side,'4000','3990')!,wide=stopTouch(snapshot,side,'4000','3900')!;
+  tight.rows.forEach((t,i)=>assert.ok(wide.rows[i].sharePct<=t.sharePct,side+t.horizon));
+  const rows=tight.rows.map(r=>r.sharePct);          // longer holding reaches the same stop at least as often
+  assert.ok(rows[0]<=rows[1]&&rows[1]<=rows[2],side+' '+rows.join(','));
+ }
 });

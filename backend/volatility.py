@@ -17,8 +17,10 @@ absolute price levels).
 """
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_FLOOR
+import json
+from decimal import Decimal, ROUND_FLOOR, InvalidOperation
 from math import ceil
+from pathlib import Path
 
 BAR_SECONDS = 300
 HORIZON_BARS = {'15m': 3, '1h': 12, '4h': 48}
@@ -81,7 +83,9 @@ def adverse_ranges(bars: list[dict], horizons: dict[str, int] | None = None,
                 continue
             result[side][name] = dict(
                 status='AVAILABLE', windows=len(sample),
-                **{f'p{int(p)}_pct': round(percentile(sample, p), 4) for p in percentiles})
+                **{f'p{int(p)}_pct': round(percentile(sample, p), 4) for p in percentiles},
+                # p1..p100 so a stop distance can be placed inside the distribution
+                quantiles_pct=[round(percentile(sample, k), 4) for k in range(1, 101)])
     return result
 
 
@@ -157,3 +161,59 @@ def lot_from_budget(budget_usd: str, loss_per_oz_usd: str, oz_per_lot: str = '10
                     loss_at_min_lot=str((unit * per_oz * oz).quantize(D('0.01'))))
     return dict(status='AVAILABLE', lot=format(lot.normalize(), 'f'),
                 loss_at_lot=str((lot * per_oz * oz).quantize(D('0.01'))), capped=capped)
+
+
+def touch_share(quantiles_pct: list[float], stop_pct: float) -> int:
+    """Whole-percent share of historical windows whose adverse move reached `stop_pct`.
+
+    `quantiles_pct` is the p1..p100 grid (non-decreasing). A stop is touched when the
+    adverse move is at least the stop distance, so equal counts as touched. Resolution is
+    1 percentage point; it is a description of the snapshot window, not a probability.
+    """
+    if len(quantiles_pct) != 100:
+        raise ValueError('need the p1..p100 grid')
+    if stop_pct <= 0:
+        raise ValueError('stop distance must be positive')
+    return sum(1 for q in quantiles_pct if q >= stop_pct)
+
+
+SNAPSHOT_PATH = Path(__file__).resolve().parents[1] / 'frontend' / 'src' / 'volatility-snapshot.json'
+
+
+def load_snapshot(path: Path = SNAPSHOT_PATH) -> dict | None:
+    try:
+        return json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+
+
+def volatility_fact(draft: dict, snapshot: dict | None = None) -> dict | None:
+    """Program-written fact for the explanation catalog; None when it cannot be computed.
+
+    Text is plain language and carries every number itself, so the model can only select it.
+    """
+    snap = snapshot if snapshot is not None else load_snapshot()
+    try:
+        side, price, lot = draft['side'], D(str(draft['price'])), D(str(draft['lot']))
+        entry = snap['ranges'][side]['1h']
+        if entry['status'] != 'AVAILABLE' or price <= 0 or lot <= 0 or not price.is_finite() or not lot.is_finite():
+            return None
+        p95_oz = price * D(str(entry['p95_pct'])) / 100
+        p95_usd = p95_oz * lot * 100
+        days = snap['window']['trading_days']
+        text = (f'近 {days} 個交易日，持有 1 小時，100 次裡有 95 次價格對這筆單不利的走勢不超過 '
+                f'{p95_oz:.2f} 美元／盎司（本筆約 {p95_usd:.2f} 美元）。這是過去的紀錄，不是預測，也不是損失上限。')
+        data = dict(horizon='1h', window_trading_days=days, p95_usd_per_oz=f'{p95_oz:.2f}',
+                    p95_this_order_usd=f'{p95_usd:.2f}', source=snap['source'], generated_at=snap['generated_at'][:10])
+        sl = draft.get('sl')
+        if sl not in (None, ''):
+            stop = abs(price - D(str(sl)))
+            if stop.is_finite() and stop > 0:
+                share = {h: touch_share(snap['ranges'][side][h]['quantiles_pct'], float(stop / price * 100))
+                         for h in ('15m', '1h', '4h') if snap['ranges'][side][h].get('status') == 'AVAILABLE'}
+                if '1h' in share:
+                    text += f' 你設定的停損離進場價 {stop:.2f} 美元／盎司，過去持有 1 小時約有 {share["1h"]}% 的時間價格會走到這個距離。'
+                data.update(stop_distance_usd_per_oz=f'{stop:.2f}', stop_touch_share_pct=share)
+        return dict(text=text, data=data)
+    except (KeyError, TypeError, ValueError, InvalidOperation, ArithmeticError):
+        return None

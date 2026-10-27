@@ -140,3 +140,7 @@
 .vol-budget input{width:100%;max-width:220px;padding:6px 8px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:4px}
 .vol-budget input:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 @media(max-width:760px){.vol-table th,.vol-table td{padding:5px 4px;font-size:12px}.vol-budget input{max-width:none}}
+.vol-stop{margin:8px 0;padding:8px 10px;border-left:3px solid var(--line);background:var(--raised);border-radius:0}
+.vol-stop p{margin:4px 0}
+.vol-stop ul,.vol-range details ul{margin:4px 0 4px 18px;padding:0;line-height:1.7}
+.vol-stop li,.vol-range details li{margin:2px 0}
