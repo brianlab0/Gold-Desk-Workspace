@@ -2,6 +2,7 @@ import type {ReactNode} from 'react';
 import type {Draft} from './types';
 import {RuleResults} from './PersonalRulesPanel';
 import {Term} from './Education';
+import VolatilityRange from './VolatilityRange';
 
 export function RiskReview({draft}:{draft:Draft}){
  const {risk}=draft;
@@ -9,6 +10,7 @@ export function RiskReview({draft}:{draft:Draft}){
   <div className="risk-grid"><span>總曝險手數<b>{risk.before_lot} → {risk.after_lot}</b></span><span>同方向均價<b>{risk.average_entry}</b></span><span>停損價格情境 <Term id="scenario"/><b>{risk.stop_loss_usd===null?(draft.sl?'無法計算':'未設定停損'):risk.stop_loss_usd+' USD'}</b></span><span>風險報酬比 <Term id="ratio"/><b>{risk.reward_risk??'資料不足'}</b></span></div>
   {risk.warnings.length>0&&<div className="warning-box" role="note">{risk.warnings.map((warning,i)=><p key={i}>{warning}</p>)}</div>}
   <details><summary>價格移動情境</summary><div className="scenario-row">{risk.scenarios.map((s,i)=><span key={i}>價格移動 {s.move}<b>{s.loss.startsWith('-')?'獲利 '+s.loss.slice(1):'損失 '+s.loss} USD</b></span>)}</div><p className="fine">情境試算不是價格預測或損失上限，不涵蓋所有滑價與費用。</p></details>
+  <VolatilityRange draft={draft}/>
  </section>;
 }
 

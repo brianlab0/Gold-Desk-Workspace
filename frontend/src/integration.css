@@ -126,3 +126,17 @@
  .pd-public.pd-view-assistant .assistant-conversation .chat-message{max-width:72ch}
  .pd-public.pd-view-assistant .assistant-conversation .chat-message p{font-size:14px;line-height:1.75}
 }
+
+/* Historical volatility range (B): uses the same theme variables as the rest of the review. */
+.vol-range{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:13px}
+.vol-range h4{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--ink)}
+.vol-range p{margin:6px 0;line-height:1.7;overflow-wrap:anywhere}
+.vol-table{width:100%;border-collapse:collapse;margin:8px 0;font-variant-numeric:tabular-nums}
+.vol-table th,.vol-table td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-weight:400}
+.vol-table thead th{color:var(--muted);font-size:12px}
+.vol-table tbody th{white-space:nowrap}
+.vol-budget{margin-top:10px;padding:10px;background:var(--raised);border:1px solid var(--line);border-radius:6px}
+.vol-budget label{display:block;margin-bottom:6px;color:var(--muted);font-size:12px}
+.vol-budget input{width:100%;max-width:220px;padding:6px 8px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:4px}
+.vol-budget input:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+@media(max-width:760px){.vol-table th,.vol-table td{padding:5px 4px;font-size:12px}.vol-budget input{max-width:none}}

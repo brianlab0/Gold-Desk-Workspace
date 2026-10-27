@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "source": "Yahoo Finance GC=F（COMEX 黃金期貨 5 分鐘 K）",
+  "source_note": "期貨資料，不是現貨 XAUUSD，也不是券商報價；僅供歷史波動描述。",
+  "generated_at": "2026-10-27T18:55:00+00:00",
+  "window": {
+    "trading_days": 20,
+    "bars": 5373,
+    "start_utc": "2026-09-30T00:00+00:00",
+    "end_utc": "2026-10-27T18:40+00:00"
+  },
+  "method": {
+    "definition": "持有期間內相對起點收盤價的最大不利變動（買單看最低價、賣單看最高價），以起點收盤價的百分比表示",
+    "percentile": "nearest-rank（不內插）",
+    "horizons": {
+      "15m": 15,
+      "1h": 60,
+      "4h": 240
+    },
+    "horizon_unit": "minutes",
+    "windows_overlap": true,
+    "skips": "跨越休市或缺棒的視窗不計入"
+  },
+  "ranges": {
+    "BUY": {
+      "15m": {
+        "status": "AVAILABLE",
+        "windows": 5310,
+        "p50_pct": 0.0653,
+        "p95_pct": 0.2335
+      },
+      "1h": {
+        "status": "AVAILABLE",
+        "windows": 5121,
+        "p50_pct": 0.1401,
+        "p95_pct": 0.499
+      },
+      "4h": {
+        "status": "AVAILABLE",
+        "windows": 4365,
+        "p50_pct": 0.3378,
+        "p95_pct": 1.1118
+      }
+    },
+    "SELL": {
+      "15m": {
+        "status": "AVAILABLE",
+        "windows": 5310,
+        "p50_pct": 0.0609,
+        "p95_pct": 0.2496
+      },
+      "1h": {
+        "status": "AVAILABLE",
+        "windows": 5121,
+        "p50_pct": 0.1306,
+        "p95_pct": 0.4598
+      },
+      "4h": {
+        "status": "AVAILABLE",
+        "windows": 4365,
+        "p50_pct": 0.2654,
+        "p95_pct": 0.9205
+      }
+    }
+  }
+}
